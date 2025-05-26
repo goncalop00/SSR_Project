@@ -1,1 +1,42 @@
-xxxx
+Start docker environment
+open snort container
+
+Installation:
+    apt update &&
+    apt install -y snort &&
+
+Configure Snort:
+    snort -A console -c /etc/snort/snort.conf -i eth0 -l /var/log/snort &&
+    tail -f /dev/null"
+
+Check allerts active
+    tail -f /var/log/snort/alert
+
+Run Snort with alerts:
+    snort -i eth0 -A console -c /etc/snort/snort.conf 
+eth0 should be changed to the correct interface for the docker bridge network
+
+Open another terminal and open the attacker container
+Run some attacks, to see the snort response:
+
+NMAP:
+    nmap <IP victim>
+
+TCP SYN Flood:
+  python3
+  from scapy.all import *
+  send(IP(dst="10.9.0.6")/TCP(dport=80, flags="S"), count=200)
+
+UDP Flood
+  python3
+  from scapy.all import *
+  send(IP(dst="10.0.0.10")/UDP(dport=80), count=200)
+
+ICMP Ping Flood
+  python3
+  from scapy.all import *
+  send(IP(dst="10.0.0.10")/ICMP(), count=100)
+
+
+See snort alerts on the snort terminal, check classification, priority, IPs, ....
+
